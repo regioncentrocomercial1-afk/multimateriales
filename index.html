@@ -9,13 +9,23 @@
 <div style="font-family:Arial,sans-serif;padding:30px;text-align:center">Cargando catálogo MULTIMATERIALES…</div>
 <script>
 (async()=>{try{
- const r=await fetch('catalogo_payload.gz.b64',{cache:'no-store'}); if(!r.ok) throw new Error('No se pudo cargar el catálogo.');
- const b64=(await r.text()).trim(), bin=atob(b64), bytes=new Uint8Array(bin.length);
- for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
- if(!('DecompressionStream' in window)) throw new Error('Este navegador no soporta la carga del catálogo.');
- const html=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
- document.open();document.write(html);document.close();
-}catch(e){document.body.innerHTML='<div style="font-family:Arial,sans-serif;max-width:700px;margin:60px auto;padding:24px"><h2>No se pudo cargar el catálogo</h2><p>'+String(e.message||e)+'</p><p>Recarga la página para intentarlo de nuevo.</p></div>';}})();
+  const r=await fetch('catalogo_payload.gz.b64?cb='+Date.now(),{cache:'no-store'});
+  if(!r.ok) throw new Error('No se pudo cargar el catálogo.');
+  if(!('DecompressionStream' in window)) throw new Error('Este navegador no soporta la carga del catálogo.');
+
+  // El archivo del repositorio es un GZIP binario, aunque conserve la extensión .b64.
+  // Se debe leer como bytes, no como texto ni pasarlo por atob().
+  const compressed=await r.arrayBuffer();
+  const stream=new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const html=await new Response(stream).text();
+
+  document.open();
+  document.write(html);
+  document.close();
+}catch(e){
+  console.error(e);
+  document.body.innerHTML='<div style="font-family:Arial,sans-serif;max-width:700px;margin:60px auto;padding:24px"><h2>No se pudo cargar el catálogo</h2><p>'+String(e.message||e)+'</p><p>Recarga la página para intentarlo de nuevo.</p></div>';
+}})();
 </script>
 </body>
 </html>
