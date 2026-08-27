@@ -1,31 +1,25 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Catálogo MULTIMATERIALES</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catálogo Multimateriales</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f3ed;color:#171717;font-family:Arial,sans-serif}header{background:#111;color:#fff;padding:18px 4vw;position:sticky;top:0;z-index:10;box-shadow:0 2px 10px #0003}h1{margin:0 0 12px;font-size:25px} .tools{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;max-width:1100px}input,select{width:100%;padding:11px;border:1px solid #ccc;border-radius:7px;background:#fff;font-size:14px}main{max-width:1200px;margin:auto;padding:22px 4vw}.status{margin-bottom:15px;padding:10px 12px;border-radius:7px;background:#fff;border:1px solid #ddd;font-size:14px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:15px}.card{background:#fff;border:1px solid #ddd;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px #0000000b}.pic{height:190px;background:#f0eee8;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px}.pic img{width:100%;height:100%;object-fit:contain}.body{padding:12px}.code{font-size:12px;color:#777}.name{font-weight:700;margin:5px 0 9px;min-height:36px}.meta{font-size:12px;color:#666;margin:3px 0}.price{font-size:19px;font-weight:700;margin-top:9px}.empty{text-align:center;padding:50px;background:#fff;border-radius:10px} @media(max-width:700px){.tools{grid-template-columns:1fr}.pic{height:170px}}
+</style>
 </head>
 <body>
-<div style="font-family:Arial,sans-serif;padding:30px;text-align:center">Cargando catálogo MULTIMATERIALES…</div>
+<header><h1>CATÁLOGO MULTIMATERIALES</h1><div class="tools"><input id="q" placeholder="Buscar por código, producto o marca…"><select id="cat"><option value="">Todas las categorías</option></select><select id="brand"><option value="">Todas las marcas</option></select></div></header>
+<main><div id="status" class="status">Cargando productos desde Google Sheet…</div><div id="grid" class="grid"></div></main>
 <script>
-(async()=>{try{
-  const r=await fetch('catalogo_payload.gz.b64?cb='+Date.now(),{cache:'no-store'});
-  if(!r.ok) throw new Error('No se pudo cargar el catálogo.');
-  if(!('DecompressionStream' in window)) throw new Error('Este navegador no soporta la carga del catálogo.');
-
-  // El archivo del repositorio es un GZIP binario, aunque conserve la extensión .b64.
-  // Se debe leer como bytes, no como texto ni pasarlo por atob().
-  const compressed=await r.arrayBuffer();
-  const stream=new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
-  const html=await new Response(stream).text();
-
-  document.open();
-  document.write(html);
-  document.close();
-}catch(e){
-  console.error(e);
-  document.body.innerHTML='<div style="font-family:Arial,sans-serif;max-width:700px;margin:60px auto;padding:24px"><h2>No se pudo cargar el catálogo</h2><p>'+String(e.message||e)+'</p><p>Recarga la página para intentarlo de nuevo.</p></div>';
-}})();
+const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbw7WoagZdDNte4z4UgP2ReUhS8K8sOtJkzKioNxil_4aqYP1_u4294ViE0ASBv7EPhgWQ/exec";
+let products=[];
+const $=id=>document.getElementById(id);
+function jsonp(url){return new Promise((resolve,reject)=>{const cb='cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);const s=document.createElement('script');const t=setTimeout(()=>{cleanup();reject(new Error('Tiempo de espera agotado'))},25000);function cleanup(){clearTimeout(t);delete window[cb];s.remove()}window[cb]=d=>{cleanup();resolve(d)};s.onerror=()=>{cleanup();reject(new Error('No se pudo acceder al Google Sheet'))};s.src=url+(url.includes('?')?'&':'?')+'callback='+cb;document.body.appendChild(s)})}
+function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function fillFilters(){const cats=[...new Set(products.map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));const brands=[...new Set(products.map(p=>p.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));$('cat').innerHTML='<option value="">Todas las categorías</option>'+cats.map(x=>`<option>${esc(x)}</option>`).join('');$('brand').innerHTML='<option value="">Todas las marcas</option>'+brands.map(x=>`<option>${esc(x)}</option>`).join('')}
+function loadImg(img){const raw=img.dataset.image;if(!raw)return;jsonp(APPS_SCRIPT_URL+'?action=image&name='+encodeURIComponent(raw)).then(d=>{if(d?.ok&&d.data?.base64){img.src='data:'+d.data.mime+';base64,'+d.data.base64;img.parentElement.querySelector('.loading')?.remove()}}).catch(()=>{img.parentElement.querySelector('.loading').textContent='Imagen no disponible'})}
+function render(){const q=$('q').value.toLowerCase().trim(),cat=$('cat').value,brand=$('brand').value;const out=products.filter(p=>(!q||(String(p.code)+' '+String(p.name)+' '+String(p.brand)+' '+String(p.category)).toLowerCase().includes(q))&&(!cat||p.category===cat)&&(!brand||p.brand===brand));$('status').textContent=`${out.length.toLocaleString('es-GT')} productos`;if(!out.length){$('grid').innerHTML='<div class="empty">No encontramos productos con esos filtros.</div>';return}$('grid').innerHTML=out.map(p=>`<article class="card"><div class="pic"><span class="loading">Cargando imagen…</span><img data-image="${esc(p.image||'')}" alt="${esc(p.name)}" loading="lazy"></div><div class="body"><div class="code">${esc(p.code)}</div><div class="name">${esc(p.name)}</div><div class="meta">Marca: ${esc(p.brand||'—')}</div><div class="meta">Categoría: ${esc(p.category||'—')}</div><div class="price">Q ${esc(p.price||'0')}</div></div></article>`).join('');document.querySelectorAll('img[data-image]').forEach(loadImg)}
+async function start(){try{const d=await jsonp(APPS_SCRIPT_URL+'?action=products');if(!d?.ok)throw new Error(d?.error||'Google Sheet no respondió');products=Array.isArray(d.products)?d.products:[];fillFilters();render()}catch(e){$('status').textContent='No se pudo conectar con Google Sheet: '+e.message;$('status').style.background='#fff0f0';$('grid').innerHTML='<div class="empty"><h2>No se pudo cargar el catálogo</h2><p>El servicio de datos no respondió. Intenta nuevamente en unos segundos.</p></div>'}}
+$('q').oninput=render;$('cat').onchange=render;$('brand').onchange=render;start();
 </script>
-</body>
-</html>
+</body></html>
